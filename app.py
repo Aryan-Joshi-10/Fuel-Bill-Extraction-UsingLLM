@@ -11,21 +11,60 @@ from flask_cors import CORS
 import traceback
 import sys
 import subprocess
+import logging
+from logging.handlers import RotatingFileHandler
+import shutil
+import time
 
 # === Initial Setup ===
 load_dotenv()
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-model = genai.GenerativeModel("gemini-1.5-flash")
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Create logs directory if it doesn't exist
+os.makedirs('logs', exist_ok=True)
+
+# Add file handler for logging
+file_handler = RotatingFileHandler('logs/app.log', maxBytes=10240, backupCount=10)
+file_handler.setFormatter(logging.Formatter(
+    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+))
+file_handler.setLevel(logging.INFO)
+logger.addHandler(file_handler)
+
+# Configure Gemini
+try:
+    genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+    model = genai.GenerativeModel("gemini-1.5-flash")
+except Exception as e:
+    logger.error(f"Failed to configure Gemini: {str(e)}")
+    raise
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Configure upload settings
-app.config["UPLOAD_FOLDER"] = "uploads"
-app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50MB max file size
+app.config["UPLOAD_FOLDER"] = os.getenv("UPLOAD_FOLDER", "uploads")
+app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH", 50 * 1024 * 1024))  # Default 50MB
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
 
+# Create upload folder if it doesn't exist
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
+
+# Cleanup old files (older than 24 hours)
+def cleanup_old_files():
+    try:
+        current_time = time.time()
+        for filename in os.listdir(app.config["UPLOAD_FOLDER"]):
+            filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+            if os.path.getmtime(filepath) < current_time - 86400:  # 24 hours
+                os.remove(filepath)
+                logger.info(f"Cleaned up old file: {filename}")
+    except Exception as e:
+        logger.error(f"Error during cleanup: {str(e)}")
 
 
 def check_poppler_installation():
@@ -156,6 +195,9 @@ def process_image(image, fuel_bill_no):
 @app.route('/upload', methods=['POST'])
 def upload_files():
     try:
+        # Cleanup old files before processing new ones
+        cleanup_old_files()
+
         if 'files' not in request.files:
             return jsonify({"error": "No files part in the request"}), 400
 
@@ -175,23 +217,24 @@ def upload_files():
             filename = secure_filename(f.filename)
             filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
 
-            # Save the file first
-            f.save(filepath)
-
-            # Read the file content
-            with open(filepath, 'rb') as file:
-                file_content = file.read()
-
-            if len(file_content) == 0:
-                results.append({
-                    "file": filename,
-                    "error": "File is empty"
-                })
-                continue
-
-            images_to_process = []
-
             try:
+                # Save the file first
+                f.save(filepath)
+                logger.info(f"Saved file: {filename}")
+
+                # Read the file content
+                with open(filepath, 'rb') as file:
+                    file_content = file.read()
+
+                if len(file_content) == 0:
+                    results.append({
+                        "file": filename,
+                        "error": "File is empty"
+                    })
+                    continue
+
+                images_to_process = []
+
                 if filename.lower().endswith(".pdf"):
                     if not check_poppler_installation():
                         results.append({
@@ -201,31 +244,15 @@ def upload_files():
                         continue
 
                     try:
-                        # Try to get page count first
-                        from pdf2image.pdf2image import convert_from_path
-                        try:
-                            # First try with bytes
-                            pdf_images = convert_from_bytes(file_content)
-                            if not pdf_images:
-                                # If that fails, try with file path
-                                pdf_images = convert_from_path(filepath)
+                        pdf_images = convert_from_bytes(file_content)
+                        if not pdf_images:
+                            raise Exception("No pages found in PDF")
 
-                            if not pdf_images:
-                                raise Exception("No pages found in PDF")
-
-                            images_to_process.extend(pdf_images)
-                            print(f"Successfully processed PDF: {filename} with {len(pdf_images)} pages")
-
-                        except Exception as e:
-                            print(f"Error processing PDF {filename}: {str(e)}")
-                            results.append({
-                                "file": filename,
-                                "error": f"Error processing PDF: {str(e)}"
-                            })
-                            continue
+                        images_to_process.extend(pdf_images)
+                        logger.info(f"Successfully processed PDF: {filename} with {len(pdf_images)} pages")
 
                     except Exception as e:
-                        print(f"Error in PDF processing: {str(e)}")
+                        logger.error(f"Error processing PDF {filename}: {str(e)}")
                         results.append({
                             "file": filename,
                             "error": f"Error processing PDF: {str(e)}"
@@ -236,6 +263,7 @@ def upload_files():
                         img = Image.open(filepath)
                         images_to_process.append(img)
                     except Exception as e:
+                        logger.error(f"Error opening image {filename}: {str(e)}")
                         results.append({
                             "file": filename,
                             "error": f"Error opening image: {str(e)}"
@@ -249,12 +277,20 @@ def upload_files():
                     results.append(result)
 
             except Exception as e:
-                print(f"Error processing file {filename}: {str(e)}")
+                logger.error(f"Error processing file {filename}: {str(e)}")
                 results.append({
                     "file": filename,
                     "error": f"Error processing file: {str(e)}"
                 })
                 continue
+            finally:
+                # Clean up the file after processing
+                try:
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+                        logger.info(f"Cleaned up file: {filename}")
+                except Exception as e:
+                    logger.error(f"Error cleaning up file {filename}: {str(e)}")
 
         return jsonify({
             "success": True,
@@ -262,7 +298,7 @@ def upload_files():
         }), 200
 
     except Exception as e:
-        print(f"Error in upload handler: {str(e)}")
+        logger.error(f"Error in upload handler: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e),
@@ -270,12 +306,40 @@ def upload_files():
         }), 500
 
 
-# === Dummy Route ===
-@app.route('/ping', methods=['GET'])
-def ping():
-    return jsonify({"message": "API is live 🚀"}), 200
+# === Health Check Route ===
+@app.route('/health', methods=['GET'])
+def health_check():
+    try:
+        # Check if Gemini API is working
+        test_response = model.generate_content("Test")
+        gemini_status = "healthy" if test_response else "unhealthy"
+
+        # Check if upload directory is writable
+        upload_dir_status = "healthy" if os.access(app.config["UPLOAD_FOLDER"], os.W_OK) else "unhealthy"
+
+        # Check if poppler is installed
+        poppler_status = "healthy" if check_poppler_installation() else "unhealthy"
+
+        return jsonify({
+            "status": "healthy",
+            "components": {
+                "gemini_api": gemini_status,
+                "upload_directory": upload_dir_status,
+                "poppler": poppler_status
+            }
+        }), 200
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e)
+        }), 500
 
 
 # === Main ===
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.getenv("PORT", 5000))
+    debug = os.getenv("FLASK_ENV", "production") == "development"
+
+    logger.info(f"Starting server on port {port} in {'debug' if debug else 'production'} mode")
+    app.run(host='0.0.0.0', port=port, debug=debug)
