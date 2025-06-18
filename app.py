@@ -7,6 +7,10 @@ import openpyxl
 import json
 from werkzeug.utils import secure_filename
 from pdf2image import convert_from_bytes
+from flask_cors import CORS
+import traceback
+import sys
+import subprocess
 
 # === Initial Setup ===
 load_dotenv()
@@ -14,8 +18,79 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 model = genai.GenerativeModel("gemini-1.5-flash")
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
+
+# Configure upload settings
 app.config["UPLOAD_FOLDER"] = "uploads"
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50MB max file size
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
+
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
+
+def check_poppler_installation():
+    try:
+        # Try to find pdfinfo in PATH
+        try:
+            result = subprocess.run(['where', 'pdfinfo'], capture_output=True, text=True)
+            if result.returncode == 0:
+                print(f"Poppler found at: {result.stdout.strip()}")
+                return True
+            else:
+                print("Poppler not found in PATH")
+                return False
+        except Exception as e:
+            print(f"Error checking for pdfinfo: {str(e)}")
+            return False
+
+        # Try to convert a simple PDF to check if poppler is installed
+        from pdf2image.exceptions import PDFInfoNotInstalledError
+        try:
+            convert_from_bytes(b'%PDF-1.4\n%EOF', first_page=1, last_page=1)
+            return True
+        except PDFInfoNotInstalledError:
+            print("PDFInfoNotInstalledError: Poppler is not installed")
+            return False
+        except Exception as e:
+            print(f"Error testing PDF conversion: {str(e)}")
+            return False
+    except Exception as e:
+        print(f"Error in check_poppler_installation: {str(e)}")
+        return False
+
+
+# Check poppler installation at startup
+print("\n=== Checking Poppler Installation ===")
+if not check_poppler_installation():
+    print("\nWARNING: Poppler is not installed or not in PATH. PDF processing will not work.")
+    print("\nPlease follow these steps:")
+    print("1. Download Poppler from: https://github.com/oschwartz10612/poppler-windows/releases/")
+    print("2. Extract it to a folder (e.g., C:\\poppler)")
+    print("3. Add the bin directory to your PATH:")
+    print("   - Open System Properties > Advanced > Environment Variables")
+    print("   - Under System Variables, find and select 'Path'")
+    print("   - Click Edit > New")
+    print("   - Add the path to the poppler bin directory (e.g., C:\\poppler\\bin)")
+    print("   - Click OK on all windows")
+    print("4. Restart your terminal/IDE")
+    print("\nCurrent PATH:")
+    print(os.environ.get('PATH', '').replace(';', '\n'))
+else:
+    print("Poppler is installed and working correctly!")
+
+
+# Add error handler for 413 errors
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    return jsonify({
+        "success": False,
+        "error": "File too large. Maximum file size is 50MB."
+    }), 413
+
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 # === Prompt for Gemini ===
 prompt = """
@@ -47,6 +122,7 @@ Your goal is to extract and return the following details in JSON format:
 }
 """  # keep same as your original prompt
 
+
 # === Helper: Process Single Image ===
 def process_image(image, fuel_bill_no):
     try:
@@ -70,48 +146,135 @@ def process_image(image, fuel_bill_no):
             except ValueError:
                 pass
 
-        return { "file": fuel_bill_no, "data": data }
+        return {"file": fuel_bill_no, "data": data}
 
     except Exception as e:
-        return { "file": fuel_bill_no, "error": str(e) }
+        return {"file": fuel_bill_no, "error": str(e)}
+
 
 # === Route: Upload & Extract Data ===
 @app.route('/upload', methods=['POST'])
 def upload_files():
-    files = request.files.getlist("files")
-    if not files:
-        return jsonify({"error": "No files uploaded"}), 400
+    try:
+        if 'files' not in request.files:
+            return jsonify({"error": "No files part in the request"}), 400
 
-    results = []
-    for f in files:
-        filename = secure_filename(f.filename)
-        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        f.save(filepath)
+        files = request.files.getlist("files")
+        if not files:
+            return jsonify({"error": "No files uploaded"}), 400
 
-        images_to_process = []
-
-        if filename.lower().endswith(".pdf"):
-            pdf_images = convert_from_bytes(f.read())
-            images_to_process.extend(pdf_images)
-        else:
-            try:
-                img = Image.open(filepath)
-                images_to_process.append(img)
-            except Exception as e:
-                results.append({ "file": filename, "error": str(e) })
+        results = []
+        for f in files:
+            if not f or not allowed_file(f.filename):
+                results.append({
+                    "file": f.filename if f else "unknown",
+                    "error": "Invalid file type. Allowed types: PDF, PNG, JPG, JPEG"
+                })
                 continue
 
-        for i, img in enumerate(images_to_process):
-            fuel_bill_no = f"{os.path.splitext(filename)[0]}_page{i+1}" if len(images_to_process) > 1 else os.path.splitext(filename)[0]
-            result = process_image(img, fuel_bill_no)
-            results.append(result)
+            filename = secure_filename(f.filename)
+            filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
 
-    return jsonify(results), 200
+            # Save the file first
+            f.save(filepath)
+
+            # Read the file content
+            with open(filepath, 'rb') as file:
+                file_content = file.read()
+
+            if len(file_content) == 0:
+                results.append({
+                    "file": filename,
+                    "error": "File is empty"
+                })
+                continue
+
+            images_to_process = []
+
+            try:
+                if filename.lower().endswith(".pdf"):
+                    if not check_poppler_installation():
+                        results.append({
+                            "file": filename,
+                            "error": "PDF processing is not available. Please install poppler on the server."
+                        })
+                        continue
+
+                    try:
+                        # Try to get page count first
+                        from pdf2image.pdf2image import convert_from_path
+                        try:
+                            # First try with bytes
+                            pdf_images = convert_from_bytes(file_content)
+                            if not pdf_images:
+                                # If that fails, try with file path
+                                pdf_images = convert_from_path(filepath)
+
+                            if not pdf_images:
+                                raise Exception("No pages found in PDF")
+
+                            images_to_process.extend(pdf_images)
+                            print(f"Successfully processed PDF: {filename} with {len(pdf_images)} pages")
+
+                        except Exception as e:
+                            print(f"Error processing PDF {filename}: {str(e)}")
+                            results.append({
+                                "file": filename,
+                                "error": f"Error processing PDF: {str(e)}"
+                            })
+                            continue
+
+                    except Exception as e:
+                        print(f"Error in PDF processing: {str(e)}")
+                        results.append({
+                            "file": filename,
+                            "error": f"Error processing PDF: {str(e)}"
+                        })
+                        continue
+                else:
+                    try:
+                        img = Image.open(filepath)
+                        images_to_process.append(img)
+                    except Exception as e:
+                        results.append({
+                            "file": filename,
+                            "error": f"Error opening image: {str(e)}"
+                        })
+                        continue
+
+                for i, img in enumerate(images_to_process):
+                    fuel_bill_no = f"{os.path.splitext(filename)[0]}_page{i + 1}" if len(images_to_process) > 1 else \
+                    os.path.splitext(filename)[0]
+                    result = process_image(img, fuel_bill_no)
+                    results.append(result)
+
+            except Exception as e:
+                print(f"Error processing file {filename}: {str(e)}")
+                results.append({
+                    "file": filename,
+                    "error": f"Error processing file: {str(e)}"
+                })
+                continue
+
+        return jsonify({
+            "success": True,
+            "results": results
+        }), 200
+
+    except Exception as e:
+        print(f"Error in upload handler: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
 
 # === Dummy Route ===
 @app.route('/ping', methods=['GET'])
 def ping():
     return jsonify({"message": "API is live 🚀"}), 200
+
 
 # === Main ===
 if __name__ == "__main__":
