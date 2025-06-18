@@ -6,7 +6,7 @@ import google.generativeai as genai
 import openpyxl
 import json
 from werkzeug.utils import secure_filename
-from pdf2image import convert_from_bytes
+#from pdf2image import convert_from_bytes
 from flask_cors import CORS
 import traceback
 import sys
@@ -15,6 +15,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import shutil
 import time
+import pdfplumber
 
 # === Initial Setup ===
 load_dotenv()
@@ -67,55 +68,55 @@ def cleanup_old_files():
         logger.error(f"Error during cleanup: {str(e)}")
 
 
-def check_poppler_installation():
-    try:
-        # Try to find pdfinfo in PATH
-        try:
-            result = subprocess.run(['where', 'pdfinfo'], capture_output=True, text=True)
-            if result.returncode == 0:
-                print(f"Poppler found at: {result.stdout.strip()}")
-                return True
-            else:
-                print("Poppler not found in PATH")
-                return False
-        except Exception as e:
-            print(f"Error checking for pdfinfo: {str(e)}")
-            return False
+# def check_poppler_installation():
+#     try:
+#         # Try to find pdfinfo in PATH
+#         try:
+#             result = subprocess.run(['where', 'pdfinfo'], capture_output=True, text=True)
+#             if result.returncode == 0:
+#                 print(f"Poppler found at: {result.stdout.strip()}")
+#                 return True
+#             else:
+#                 print("Poppler not found in PATH")
+#                 return False
+#         except Exception as e:
+#             print(f"Error checking for pdfinfo: {str(e)}")
+#             return False
+#
+#         # Try to convert a simple PDF to check if poppler is installed
+#         from pdf2image.exceptions import PDFInfoNotInstalledError
+#         try:
+#             convert_from_bytes(b'%PDF-1.4\n%EOF', first_page=1, last_page=1)
+#             return True
+#         except PDFInfoNotInstalledError:
+#             print("PDFInfoNotInstalledError: Poppler is not installed")
+#             return False
+#         except Exception as e:
+#             print(f"Error testing PDF conversion: {str(e)}")
+#             return False
+#     except Exception as e:
+#         print(f"Error in check_poppler_installation: {str(e)}")
+#         return False
 
-        # Try to convert a simple PDF to check if poppler is installed
-        from pdf2image.exceptions import PDFInfoNotInstalledError
-        try:
-            convert_from_bytes(b'%PDF-1.4\n%EOF', first_page=1, last_page=1)
-            return True
-        except PDFInfoNotInstalledError:
-            print("PDFInfoNotInstalledError: Poppler is not installed")
-            return False
-        except Exception as e:
-            print(f"Error testing PDF conversion: {str(e)}")
-            return False
-    except Exception as e:
-        print(f"Error in check_poppler_installation: {str(e)}")
-        return False
 
-
-# Check poppler installation at startup
-print("\n=== Checking Poppler Installation ===")
-if not check_poppler_installation():
-    print("\nWARNING: Poppler is not installed or not in PATH. PDF processing will not work.")
-    print("\nPlease follow these steps:")
-    print("1. Download Poppler from: https://github.com/oschwartz10612/poppler-windows/releases/")
-    print("2. Extract it to a folder (e.g., C:\\poppler)")
-    print("3. Add the bin directory to your PATH:")
-    print("   - Open System Properties > Advanced > Environment Variables")
-    print("   - Under System Variables, find and select 'Path'")
-    print("   - Click Edit > New")
-    print("   - Add the path to the poppler bin directory (e.g., C:\\poppler\\bin)")
-    print("   - Click OK on all windows")
-    print("4. Restart your terminal/IDE")
-    print("\nCurrent PATH:")
-    print(os.environ.get('PATH', '').replace(';', '\n'))
-else:
-    print("Poppler is installed and working correctly!")
+# # Check poppler installation at startup
+# print("\n=== Checking Poppler Installation ===")
+# if not check_poppler_installation():
+#     print("\nWARNING: Poppler is not installed or not in PATH. PDF processing will not work.")
+#     print("\nPlease follow these steps:")
+#     print("1. Download Poppler from: https://github.com/oschwartz10612/poppler-windows/releases/")
+#     print("2. Extract it to a folder (e.g., C:\\poppler)")
+#     print("3. Add the bin directory to your PATH:")
+#     print("   - Open System Properties > Advanced > Environment Variables")
+#     print("   - Under System Variables, find and select 'Path'")
+#     print("   - Click Edit > New")
+#     print("   - Add the path to the poppler bin directory (e.g., C:\\poppler\\bin)")
+#     print("   - Click OK on all windows")
+#     print("4. Restart your terminal/IDE")
+#     print("\nCurrent PATH:")
+#     print(os.environ.get('PATH', '').replace(';', '\n'))
+# else:
+#     print("Poppler is installed and working correctly!")
 
 
 # Add error handler for 413 errors
@@ -235,21 +236,41 @@ def upload_files():
 
                 images_to_process = []
 
+                # if filename.lower().endswith(".pdf"):
+                #     if not check_poppler_installation():
+                #         results.append({
+                #             "file": filename,
+                #             "error": "PDF processing is not available. Please install poppler on the server."
+                #         })
+                #         continue
+                #
+                #     try:
+                #         pdf_images = convert_from_bytes(file_content)
+                #         if not pdf_images:
+                #             raise Exception("No pages found in PDF")
+                #
+                #         images_to_process.extend(pdf_images)
+                #         logger.info(f"Successfully processed PDF: {filename} with {len(pdf_images)} pages")
+                #
+                #     except Exception as e:
+                #         logger.error(f"Error processing PDF {filename}: {str(e)}")
+                #         results.append({
+                #             "file": filename,
+                #             "error": f"Error processing PDF: {str(e)}"
+                #         })
+                #         continue
                 if filename.lower().endswith(".pdf"):
-                    if not check_poppler_installation():
-                        results.append({
-                            "file": filename,
-                            "error": "PDF processing is not available. Please install poppler on the server."
-                        })
-                        continue
-
                     try:
-                        pdf_images = convert_from_bytes(file_content)
-                        if not pdf_images:
-                            raise Exception("No pages found in PDF")
+                        with pdfplumber.open(filepath) as pdf:
+                            if not pdf.pages:
+                                raise Exception("No pages found in PDF")
 
-                        images_to_process.extend(pdf_images)
-                        logger.info(f"Successfully processed PDF: {filename} with {len(pdf_images)} pages")
+                            for page in pdf.pages:
+                                # Convert each page to an image
+                                img = page.to_image(resolution=300).original
+                                images_to_process.append(img)
+
+                        logger.info(f"Successfully processed PDF: {filename} with {len(images_to_process)} pages")
 
                     except Exception as e:
                         logger.error(f"Error processing PDF {filename}: {str(e)}")
@@ -318,14 +339,14 @@ def health_check():
         upload_dir_status = "healthy" if os.access(app.config["UPLOAD_FOLDER"], os.W_OK) else "unhealthy"
 
         # Check if poppler is installed
-        poppler_status = "healthy" if check_poppler_installation() else "unhealthy"
+        #poppler_status = "healthy" if check_poppler_installation() else "unhealthy"
 
         return jsonify({
             "status": "healthy",
             "components": {
                 "gemini_api": gemini_status,
                 "upload_directory": upload_dir_status,
-                "poppler": poppler_status
+                "pdf_processing": "healthy"  # If you want to retain the section
             }
         }), 200
     except Exception as e:
