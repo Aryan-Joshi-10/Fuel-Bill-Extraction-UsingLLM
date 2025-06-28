@@ -70,7 +70,7 @@ for img_file in image_files:
         elif content.startswith("```"):
             content = content[3:-3].strip()
 
-        # Parse the cleaned JSON
+        # Parse the cleaned JSON (Converted into Python object such as Dictionary)
         data = json.loads(content)
 
         # After json.loads(content)
@@ -98,7 +98,7 @@ for img_file in image_files:
         print(f"❌ Error processing {img_file}: {e}")
 
 # === Save workbook ===
-output_file = "extracted_bills3.xlsx"
+output_file = "extracted_bills.xlsx"
 wb.save(output_file)
 print(f"\n✅ Extraction complete. Excel saved at: {output_file}")
 

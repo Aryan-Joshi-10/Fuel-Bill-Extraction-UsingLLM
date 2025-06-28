@@ -68,57 +68,6 @@ def cleanup_old_files():
         logger.error(f"Error during cleanup: {str(e)}")
 
 
-# def check_poppler_installation():
-#     try:
-#         # Try to find pdfinfo in PATH
-#         try:
-#             result = subprocess.run(['where', 'pdfinfo'], capture_output=True, text=True)
-#             if result.returncode == 0:
-#                 print(f"Poppler found at: {result.stdout.strip()}")
-#                 return True
-#             else:
-#                 print("Poppler not found in PATH")
-#                 return False
-#         except Exception as e:
-#             print(f"Error checking for pdfinfo: {str(e)}")
-#             return False
-#
-#         # Try to convert a simple PDF to check if poppler is installed
-#         from pdf2image.exceptions import PDFInfoNotInstalledError
-#         try:
-#             convert_from_bytes(b'%PDF-1.4\n%EOF', first_page=1, last_page=1)
-#             return True
-#         except PDFInfoNotInstalledError:
-#             print("PDFInfoNotInstalledError: Poppler is not installed")
-#             return False
-#         except Exception as e:
-#             print(f"Error testing PDF conversion: {str(e)}")
-#             return False
-#     except Exception as e:
-#         print(f"Error in check_poppler_installation: {str(e)}")
-#         return False
-
-
-# # Check poppler installation at startup
-# print("\n=== Checking Poppler Installation ===")
-# if not check_poppler_installation():
-#     print("\nWARNING: Poppler is not installed or not in PATH. PDF processing will not work.")
-#     print("\nPlease follow these steps:")
-#     print("1. Download Poppler from: https://github.com/oschwartz10612/poppler-windows/releases/")
-#     print("2. Extract it to a folder (e.g., C:\\poppler)")
-#     print("3. Add the bin directory to your PATH:")
-#     print("   - Open System Properties > Advanced > Environment Variables")
-#     print("   - Under System Variables, find and select 'Path'")
-#     print("   - Click Edit > New")
-#     print("   - Add the path to the poppler bin directory (e.g., C:\\poppler\\bin)")
-#     print("   - Click OK on all windows")
-#     print("4. Restart your terminal/IDE")
-#     print("\nCurrent PATH:")
-#     print(os.environ.get('PATH', '').replace(';', '\n'))
-# else:
-#     print("Poppler is installed and working correctly!")
-
-
 # Add error handler for 413 errors
 @app.errorhandler(413)
 def request_entity_too_large(error):
@@ -337,9 +286,6 @@ def health_check():
 
         # Check if upload directory is writable
         upload_dir_status = "healthy" if os.access(app.config["UPLOAD_FOLDER"], os.W_OK) else "unhealthy"
-
-        # Check if poppler is installed
-        #poppler_status = "healthy" if check_poppler_installation() else "unhealthy"
 
         return jsonify({
             "status": "healthy",
