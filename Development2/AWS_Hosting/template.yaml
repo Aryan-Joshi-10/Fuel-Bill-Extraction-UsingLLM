@@ -1,0 +1,253 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Serverless Fuel Bill Extraction - S3 -> Lambda -> Gemini -> DynamoDB -> Excel to S3
+
+Parameters:
+  InputBucketName:
+    Type: String
+    Default: my-fuelbills-uploads
+    Description: Name of the S3 bucket for uploads (will create if not existing)
+  OutputPrefix:
+    Type: String
+    Default: output/
+    Description: S3 key prefix to store generated Excel files
+  UploadsPrefix:
+    Type: String
+    Default: uploads/
+    Description: S3 key prefix to trigger the Lambda on file upload
+  DynamoTableName:
+    Type: String
+    Default: FuelBillJobs
+    Description: DynamoDB table to store extraction results
+  GeminiModel:
+    Type: String
+    Default: gemini-2.5-flash
+    Description: Gemini model name
+
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: FuelBillExtraction
+    Description: S3->Lambda->DynamoDB workflow for fuel bill extraction using Gemini
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 120
+    MemorySize: 1024
+    Architectures:
+      - arm64
+    Tracing: Active
+    Environment:
+      Variables:
+        DDB_TABLE: !Ref DynamoTableName
+        OUTPUT_PREFIX: !Ref OutputPrefix
+        GEMINI_MODEL: !Ref GeminiModel
+        # Set this securely post-deploy or via sam deploy --parameter-overrides
+        # GOOGLE_API_KEY: set via console/Secrets Manager if preferred
+
+Resources:
+  InputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref InputBucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  DynamoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref DynamoTableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: file_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: file_key
+          KeyType: HASH
+
+  FuelBillFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: fuelbill-extract
+      CodeUri: lambda/
+      Handler: handler.lambda_handler
+      Description: Extracts fields from uploaded fuel bills, writes JSON to DynamoDB and Excel to S3
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+                - s3:ListBucket
+              Resource:
+                - !Sub arn:aws:s3:::${InputBucketName}
+                - !Sub arn:aws:s3:::${InputBucketName}/*
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:GetItem
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoTableName}
+      Events:
+        S3UploadEvent:
+          Type: S3
+          Properties:
+            Bucket: !Ref InputBucket
+            Events: "s3:ObjectCreated:*"
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: !Ref UploadsPrefix
+      Environment:
+        Variables:
+          DDB_TABLE: !Ref DynamoTableName
+          OUTPUT_PREFIX: !Ref OutputPrefix
+          GEMINI_MODEL: !Ref GeminiModel
+          # GOOGLE_API_KEY should be provided after deploy (Console) or via parameters/Secrets
+
+  # HTTP API for frontend integration (presign + status + output URL)
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+
+  PresignUploadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: fuelbill-presign-upload
+      CodeUri: api/
+      Handler: presign_upload.lambda_handler
+      Description: Returns a presigned POST for uploading to S3 uploads/ prefix
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:GetBucketLocation
+              Resource:
+                - !Sub arn:aws:s3:::${InputBucketName}/*
+                - !Sub arn:aws:s3:::${InputBucketName}
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref InputBucketName
+          UPLOADS_PREFIX: !Ref UploadsPrefix
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /upload-url
+            Method: POST
+
+  GetJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: fuelbill-get-job
+      CodeUri: api/
+      Handler: get_job.lambda_handler
+      Description: Reads a job item from DynamoDB by file_key
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoTableName}
+      Environment:
+        Variables:
+          DDB_TABLE: !Ref DynamoTableName
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /job
+            Method: GET
+
+  GetOutputUrlFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: fuelbill-output-url
+      CodeUri: api/
+      Handler: get_output_url.lambda_handler
+      Description: Returns a presigned GET URL for the generated Excel output
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:GetBucketLocation
+              Resource:
+                - !Sub arn:aws:s3:::${InputBucketName}/*
+                - !Sub arn:aws:s3:::${InputBucketName}
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref InputBucketName
+          OUTPUT_PREFIX: !Ref OutputPrefix
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /output-url
+            Method: GET
+
+  GetFuelBillsTotalFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: fuelbill-get-total
+      CodeUri: api/
+      Handler: get_fuel_bills_total.lambda_handler
+      Description: Returns the total fuel cost from all completed bills in DynamoDB
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Scan
+              Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoTableName}
+      Environment:
+        Variables:
+          DDB_TABLE: !Ref DynamoTableName
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /fuel-bills-total
+            Method: GET
+
+Outputs:
+  BucketName:
+    Value: !Ref InputBucket
+  DynamoDBTable:
+    Value: !Ref DynamoTable
+  FunctionName:
+    Value: !Ref FuelBillFunction
+  HttpApiUrl:
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+
+

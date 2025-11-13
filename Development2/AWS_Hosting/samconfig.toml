@@ -1,0 +1,13 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "fuel-bill-extraction"
+resolve_s3 = true
+s3_prefix = "fuel-bill-extraction"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "InputBucketName=\"my-fuelbills-uploads\" OutputPrefix=\"output/\" UploadsPrefix=\"uploads/\" DynamoTableName=\"FuelBillJobs\" GeminiModel=\"gemini-2.5-flash\""
+image_repositories = []
+
+[default.global.parameters]
+region = "ap-south-1"

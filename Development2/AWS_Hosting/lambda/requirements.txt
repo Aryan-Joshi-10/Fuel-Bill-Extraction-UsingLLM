@@ -1,0 +1,8 @@
+boto3
+google-generativeai
+openpyxl
+pdfplumber
+Pillow
+python-dateutil
+
+

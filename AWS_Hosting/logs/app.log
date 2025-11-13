@@ -1,0 +1,68 @@
+2025-11-09 00:41:02,580 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:225]
+2025-11-09 00:42:51,247 ERROR: Health check failed: 429 Quota exceeded for quota metric 'Generate Content API requests per minute' and limit 'GenerateContent request limit per minute for a region' of service 'generativelanguage.googleapis.com' for consumer 'project_number:629069857254'. [reason: "RATE_LIMIT_EXCEEDED"
+domain: "googleapis.com"
+metadata {
+  key: "service"
+  value: "generativelanguage.googleapis.com"
+}
+metadata {
+  key: "quota_unit"
+  value: "1/min/{project}/{region}"
+}
+metadata {
+  key: "quota_metric"
+  value: "generativelanguage.googleapis.com/generate_content_requests"
+}
+metadata {
+  key: "quota_location"
+  value: "asia-southeast1"
+}
+metadata {
+  key: "quota_limit"
+  value: "GenerateContentRequestsPerMinutePerProjectPerRegion"
+}
+metadata {
+  key: "quota_limit_value"
+  value: "0"
+}
+metadata {
+  key: "consumer"
+  value: "projects/629069857254"
+}
+, links {
+  description: "Request a higher quota limit."
+  url: "https://cloud.google.com/docs/quotas/help/request_increase"
+}
+] [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:218]
+2025-11-09 00:45:14,213 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:225]
+2025-11-09 01:02:21,480 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:246]
+2025-11-09 01:05:17,589 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:05:19,961 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:07:03,484 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:07:26,121 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:08:10,993 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:08:24,298 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:11:51,488 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:248]
+2025-11-09 01:11:54,639 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:248]
+2025-11-09 01:12:59,226 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:13:16,079 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:13:17,000 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:13:29,389 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:13:31,004 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:13:44,715 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:13:58,914 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:14:01,160 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:14:30,198 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:14:35,020 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:14:40,224 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:14:46,952 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:14:49,610 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:15:00,142 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:15:04,006 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-09 01:15:16,896 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:247]
+2025-11-10 18:42:21,714 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:267]
+2025-11-10 18:42:47,229 INFO: ✅ Uploaded fuel_bill_10.png to S3 bucket: my-fuelbills-uploads [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:178]
+2025-11-10 18:42:47,235 ERROR: Error processing fuel_bill_10.png: embedded null byte [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:198]
+2025-11-10 22:41:28,363 INFO: 🚀 FastAPI server started successfully. [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:267]
+2025-11-10 22:41:38,008 INFO: ✅ Uploaded fuel_bill_10.png to S3 bucket: my-fuelbills-uploads [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:178]
+2025-11-10 22:41:38,009 ERROR: Error processing fuel_bill_10.png: embedded null byte [in /Users/aryanjoshi/Documents/Aryan/Programming/Projects/Fuel-Bill-Extraction/AWS_Hosting/app.py:198]

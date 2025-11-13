@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Income Tax Filing Automation</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>📊 Income Tax Filing Automation</h1>
+                <p class="subtitle">Streamline your tax documentation and validation process</p>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="tabs">
+            <button type="button" class="tab-btn active" data-tab="declaration">Tax Declaration</button>
+            <button type="button" class="tab-btn" data-tab="fuel-bills">Fuel Bills</button>
+            <button type="button" class="tab-btn" data-tab="driver-salary">Driver Salary</button>
+            <button type="button" class="tab-btn" data-tab="additional">Additional</button>
+            <button type="button" class="tab-btn" data-tab="validation">Validation</button>
+        </nav>
+
+        <!-- Tab Content -->
+        <main class="content">
+            <!-- Tax Declaration Tab -->
+            <section id="declaration" class="tab-content active">
+                <div class="card">
+                    <h2>📋 Income Tax Declaration Details</h2>
+                    <p class="card-description">Enter the details you declared during income tax filing</p>
+                    
+                    <form id="declaration-form" class="form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="financial-year">Financial Year *</label>
+                                <input type="text" id="financial-year" name="financial_year" placeholder="e.g., 2023-24" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="pan-number">PAN Number *</label>
+                                <input type="text" id="pan-number" name="pan_number" placeholder="ABCDE1234F" required maxlength="10">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="name">Full Name *</label>
+                                <input type="text" id="name" name="name" placeholder="Enter your full name" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="declared-fuel">Declared Fuel Amount (₹) *</label>
+                                <input type="number" id="declared-fuel" name="declared_fuel_amount" placeholder="0.00" step="0.01" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="declared-driver-salary">Declared Driver Salary (₹) *</label>
+                                <input type="number" id="declared-driver-salary" name="declared_driver_salary" placeholder="0.00" step="0.01" required>
+                            </div>
+                            
+                            <div class="form-group full-width">
+                                <label for="notes">Notes</label>
+                                <textarea id="notes" name="notes" rows="3" placeholder="Any additional notes..."></textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Save Declaration</button>
+                            <button type="button" class="btn btn-secondary" id="load-declaration">Load Saved</button>
+                        </div>
+                    </form>
+                    
+                    <div id="declaration-status" class="status-message"></div>
+                </div>
+            </section>
+
+            <!-- Fuel Bills Tab -->
+            <section id="fuel-bills" class="tab-content">
+                <div class="card">
+                    <h2>⛽ Fuel Bills Extraction</h2>
+                    <p class="card-description">Upload fuel bill images or PDFs to extract and calculate total fuel cost</p>
+                    
+                    <div class="upload-section" id="upload-section">
+                        <div class="upload-area" id="upload-area">
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <p class="upload-text">Drag & drop fuel bills here or click to browse</p>
+                            <p class="upload-hint">Supports: PDF, PNG, JPG, JPEG</p>
+                            <!-- <input type="file" id="fuel-bills-input" multiple accept=".pdf,.png,.jpg,.jpeg" style="display: none;"> -->
+                            <input type="file" id="fuel-bills-input" class="visually-hidden" multiple accept=".pdf,.png,.jpg,.jpeg">
+                        </div>
+                        
+                        <div class="upload-actions">
+                            <button type="button" class="btn btn-primary" id="upload-btn" disabled>Select Files First</button>
+                            <button type="button" class="btn btn-secondary" id="generate-excel-btn" style="display: none;">Generate Excel</button>
+                        </div>
+                    </div>
+                    
+                    <div id="upload-progress" class="progress-bar" style="display: none;">
+                        <div class="progress-fill"></div>
+                    </div>
+                    
+                    <div id="fuel-bills-results" class="results-section"></div>
+                </div>
+            </section>
+
+            <!-- Driver Salary Tab -->
+            <section id="driver-salary" class="tab-content">
+                <div class="card">
+                    <h2>👨‍💼 Driver Salary Calculation</h2>
+                    <p class="card-description">Calculate and validate driver salary against declared amount</p>
+                    
+                    <form id="driver-salary-form" class="form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="driver-name">Driver Name *</label>
+                                <input type="text" id="driver-name" name="driver_name" placeholder="Enter driver name" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="monthly-salary">Monthly Salary (₹) *</label>
+                                <input type="number" id="monthly-salary" name="monthly_salary" placeholder="0.00" step="0.01" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="months-worked">Months Worked *</label>
+                                <input type="number" id="months-worked" name="months_worked" placeholder="12" min="1" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="total-salary">Total Salary (₹)</label>
+                                <input type="number" id="total-salary" name="total_salary" placeholder="Auto-calculated" step="0.01" readonly>
+                            </div>
+                            
+                            <div class="form-group full-width">
+                                <label for="salary-notes">Notes</label>
+                                <textarea id="salary-notes" name="notes" rows="3" placeholder="Any additional notes..."></textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Save Salary Details</button>
+                            <button type="button" class="btn btn-secondary" id="validate-salary-btn">Validate Against Declaration</button>
+                            <button type="button" class="btn btn-secondary" id="load-salary">Load Saved</button>
+                        </div>
+                    </form>
+                    
+                    <div id="salary-status" class="status-message"></div>
+                    <div id="salary-validation" class="validation-result"></div>
+                </div>
+            </section>
+
+            <!-- Additional Feature Tab -->
+            <section id="additional" class="tab-content">
+                <div class="card">
+                    <h2>➕ Additional Feature</h2>
+                    <p class="card-description">This section is reserved for additional features you'll specify later</p>
+                    
+                    <div class="placeholder-content">
+                        <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <p>Feature coming soon...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Validation Tab -->
+            <section id="validation" class="tab-content">
+                <div class="card">
+                    <h2>✅ Overall Validation</h2>
+                    <p class="card-description">View and validate all declared amounts against calculated values</p>
+                    
+                    <div class="validation-section">
+                        <button type="button" class="btn btn-primary" id="validate-all-btn">Run Full Validation</button>
+                        
+                        <div id="validation-results" class="validation-results"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
